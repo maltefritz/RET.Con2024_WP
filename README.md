@@ -21,3 +21,19 @@ This folder contains the necessary input data for the combined investment and di
 ### Output data
 
 This folder contains the output data of the combined investment and dispatch optimization. For each setup, there are the unit commitment time series, as well as key parameters and unit cost. Additionally, the results are visualized in plots, that allow an even more detailed analysis than provided in the paper.
+
+# Reproduction
+
+To achieve reproducible results, the necessary dependencies are saved in the `requirements.txt` file. In a clean environment from the root directory the installation from this file should allow the full reproduction of the results. This steps could look like this:
+
+```
+conda create -n my_new_env python=3.10
+```
+
+```
+conda activate my_new_env
+```
+
+```
+python -m pip install -r requirements.txt
+```
