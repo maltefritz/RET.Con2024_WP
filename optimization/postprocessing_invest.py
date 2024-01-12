@@ -2,11 +2,10 @@
 
 import numpy as np
 import pandas as pd
-from oemof.solph import views
-
 from eco_funcs import (LCOH, bew_op_bonus, chp_bonus, emission_calc,
                        invest_stes, npv)
 from helpers import calc_bew_el_cost_prim, calc_bew_el_cost_sub
+from oemof.solph import views
 
 
 def primary_network_invest(results, meta_results, data, param, use_hp):
@@ -428,13 +427,6 @@ def sub_network_invest(results, meta_results, data, param, **kwargs):
     bew_op_bonus_Q_in  = calc_bew_el_cost_sub(data, param)
 
     # ccet
-    # ccet_P_N = data['ccet_P_max_woDH'].mean()  # EIGENTLICH NICHT KORREKT. MÜSSTE UM BETA ZUM NENNPUNKT REDUZIERT WERDEN
-    # key_params['ccet_chp_bonus_real'] = chp_bonus(
-    #     ccet_P_N*1e3, use_case='grid'
-    #     ) * 10 
-    # cost_df = calc_cost('ccet', ccet_P_N, param, data_all['P_ccet'], cost_df)
-
-    # ccet_Q_N = data_caps.loc[0, 'cap_ccet']
     ccet_Q_N = param['ccet']['Q_N']
     ccet_P_N = ccet_Q_N / data['ccet_eta_th'].mean() * data['ccet_eta_el'].mean()
     key_params['ccet_chp_bonus_real'] = chp_bonus(
@@ -449,9 +441,6 @@ def sub_network_invest(results, meta_results, data, param, **kwargs):
         )
 
     # st-tes
-    # st_tes_Q_N = (
-    #     data_caps.loc[0, 'cap_in_st-tes'] / param['st-tes']['Q_in_to_cap']
-    #     )
     st_tes_Q_N = param['st-tes']['Q']
     cost_df.loc['invest', 'st-tes'] = (
         param['st-tes']['inv_spez_m'] * st_tes_Q_N
@@ -1150,45 +1139,3 @@ def check_subsidies(data_all, data_caps, data, param, savepath, use_hp=True):
 
     df.to_csv(savepath, sep=';')
 
-
-if __name__ == '__main__':
-    import json
-    import os
-
-    datapath = os.path.join(
-        __file__, '..', 'sub_network', 'input',
-        'sn19_invest_data_HeatPumpPCEconOpen_R717.csv'
-    )
-    data = pd.read_csv(datapath, sep=';', index_col=0, parse_dates=True)
-
-    parampath = os.path.join(
-        __file__, '..', 'sub_network', 'input',
-        'sn19_invest_param_HeatPumpPCEconOpen_R717.json'
-    )
-    with open(parampath, 'r', encoding='utf-8') as file:
-        param = json.load(file)
-
-    allpath = os.path.join(
-        __file__, '..', 'sub_network', 'output',
-        'sn19_invest_timeseries_HeatPumpPCEconOpen_R717_5%.csv'
-    )
-    data_all = pd.read_csv(allpath, sep=';', index_col=0, parse_dates=True)
-
-    cappath = os.path.join(
-        __file__, '..', 'sub_network', 'output',
-        'sn19_invest_capacities_HeatPumpPCEconOpen_R717_5%.csv'
-    )
-    data_caps = pd.read_csv(cappath, sep=';', index_col=0)
-
-    # savepath = os.path.join(
-    #     __file__, '..', 'sub_network', 'output',
-    #     'sn19_invest_subsidies_check_HeatPumpPCEconOpen_R717_5%.csv'
-    # )
-
-    hp_inv_bonus, sub_hp_inv_bonus, key_params = check_bew_bonus(
-        data_all, data_caps, data, param
-        )
-
-    print(hp_inv_bonus)
-    print(sub_hp_inv_bonus)
-    print(key_params)

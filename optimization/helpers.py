@@ -2,7 +2,6 @@ from eco_funcs import bew_op_bonus
 
 
 def calc_bew_el_cost_prim(data, param):
-    "bluuuuuuuuub"
     hp_P_max = (data['hp_Q_max'] - data['hp_c_0']) / data['hp_c_1']
     SCOP = data['hp_Q_max'].mean() / hp_P_max.mean()
     if SCOP >= 2.5:

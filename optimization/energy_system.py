@@ -2,7 +2,6 @@
 
 import oemof.solph as solph
 import pandas as pd
-
 from eco_funcs import bew_op_bonus, chp_bonus
 from helpers import calc_bew_el_cost_prim, calc_bew_el_cost_sub
 
@@ -301,7 +300,6 @@ def primary_network(data, param, use_hp=True, return_unsolved=False):
 
     # %% Solve
     model = solph.Model(energy_system)
-    # model.write('my_model.lp', io_options={'symbolic_solver_labels': True})
     model.solve(
         solver='gurobi', solve_kwargs={'tee': True},
         cmdline_options={"mipgap": param['param']['mipgap']}
@@ -492,132 +490,6 @@ def sub_network(data, param, **kwargs):
 
     return results, meta_results
 
-
-# def sub_network_simple(data, param):
-#     """
-#     Generate and solve mixed integer linear problem of the simple sub network.
-
-#     Parameters
-#     ----------
-
-#     data : pandas.DataFrame
-#         csv file of user defined time dependent parameters.
-
-#     param : dict
-#         JSON parameter file of user defined constants.
-#     """
-#     # %% Create time index
-#     periods = len(data)
-#     date_time_index = pd.date_range(data.index[0], periods=periods, freq='h')
-
-#     # %% Create energy system
-#     energy_system = solph.EnergySystem(timeindex=date_time_index)
-
-#     # %% Busses
-#     enw = solph.Bus(label='electricity network')
-#     hnw = solph.Bus(label='heat network')
-
-#     energy_system.add(enw, hnw)
-
-#     # %% Sources
-#     elec_source = solph.components.Source(
-#         label='electricity source',
-#         outputs={
-#             enw: solph.Flow(
-#                 variable_costs=(
-#                     param['param']['elec_consumer_charges_grid']
-#                     + data['el_spot_price']
-#                     # + (data['co2_price'] * data['ef_om'])
-#                     ))}
-#         )
-
-#     primary_network_source = solph.components.Source(
-#         label='primary network',
-#         outputs={
-#             hnw: solph.Flow(
-#                 variable_costs=data['primary_network_heat_price']
-#                 )}
-#         )
-
-#     energy_system.add(elec_source, primary_network_source)
-
-#     # %% Sinks
-#     heat_sink = solph.components.Sink(
-#         label='heat demand',
-#         inputs={
-#             hnw: solph.Flow(
-#                 variable_costs=-param['param']['heat_price'],
-#                 nominal_value=data['heat_demand'].max(),
-#                 fix=data['heat_demand']/data['heat_demand'].max()
-#                 )}
-#         )
-
-#     energy_system.add(heat_sink)
-
-#     # %% Heat pump
-#     hp = solph.components.OffsetConverter(
-#         label='heat pump',
-#         inputs={
-#             enw: solph.Flow(
-#                 nominal_value=1,
-#                 max=data['P_max_hp'],
-#                 min=data['P_min_hp'],
-#                 nonconvex=solph.NonConvex()
-#                 )},
-#         outputs={
-#             hnw: solph.Flow(
-#                 variable_costs=(
-#                     param['HP']['op_cost_var'])
-#                 )},
-#         coefficients=[data['c_0_hp'], data['c_1_hp']]
-#         )
-
-#     energy_system.add(hp)
-
-#     # %% Short term storage
-#     st_tes = solph.components.GenericStorage(
-#         label='st-tes',
-#         nominal_storage_capacity=param['st-tes']['Q'],
-#         inputs={
-#             hnw: solph.Flow(
-#                 storageflowlimit=True,
-#                 nominal_value=param['st-tes']['Q_N_in'],
-#                 max=param['st-tes']['Q_rel_in_max'],
-#                 min=param['st-tes']['Q_rel_in_min'],
-#                 variable_costs=param['st-tes']['op_cost_var'],
-#                 nonconvex=solph.NonConvex(
-#                     initial_status=int(param['st-tes']['init_status'])))},
-#         outputs={
-#             hnw: solph.Flow(
-#                 storageflowlimit=True,
-#                 nominal_value=param['st-tes']['Q_N_out'],
-#                 max=param['st-tes']['Q_rel_out_max'],
-#                 min=param['st-tes']['Q_rel_out_min'],
-#                 nonconvex=solph.NonConvex())},
-#         initial_storage_level=param['st-tes']['init_storage'],
-#         loss_rate=param['st-tes']['Q_rel_loss'],
-#         inflow_conversion_factor=param['st-tes']['inflow_conv'],
-#         outflow_conversion_factor=param['st-tes']['outflow_conv'])
-
-#     energy_system.add(st_tes)
-
-#     # %% Solve
-#     model = solph.Model(energy_system)
-#     solph.constraints.limit_active_flow_count_by_keyword(
-#         model, 'storageflowlimit', lower_limit=0, upper_limit=1)
-#     # model.write('my_model.lp', io_options={'symbolic_solver_labels': True})
-#     model.solve(
-#         solver='gurobi', solve_kwargs={'tee': True},
-#         cmdline_options={"mipgap": param['param']['mipgap']}
-#         )
-
-#     # Ergebnisse in results
-#     results = solph.processing.results(model)
-
-#     # Metaergebnisse
-#     meta_results = solph.processing.meta_results(model)
-
-#     return results, meta_results
 
 def sonderborg_network(data, param, use_hp=True, return_unsolved=False):
     """
@@ -1109,25 +981,3 @@ def IVgdh_network(data, param, return_unsolved=False):
 
     return results, meta_results
 
-
-if __name__ == '__main__':
-    data = pd.read_csv(
-        'input\\data.csv', sep=';', index_col=0, parse_dates=True
-        )
-
-    import json
-
-    with open('input\\param.json', 'r') as file:
-        param = json.load(file)
-
-    # results, meta_results = primary_network(data, param, use_hp=True)
-
-    # import postprocessing
-
-    # data_all, key_params = postprocessing.primary_network(
-    #     results, meta_results, data, param, use_hp=True
-    #     )
-
-    energy_system = primary_network(
-        data, param, use_hp=False, return_unsolved=True
-        )
