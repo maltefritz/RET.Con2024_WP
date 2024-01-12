@@ -2,7 +2,6 @@
 
 import oemof.solph as solph
 import pandas as pd
-
 from eco_funcs import bew_op_bonus, calc_bwsf, chp_bonus
 from energy_system import primary_network
 from helpers import calc_bew_el_cost_prim, calc_bew_el_cost_sub
@@ -244,7 +243,6 @@ def primary_network_invest(data, param, use_hp=True, return_unsolved=False):
     energy_system.add(plb)
 
     # %% Short term storage
-    # C_var erneut recherchieren und mit Quelle hinterlegen!
     st_tes = solph.components.GenericStorage(
         label='st-tes',
         investment=solph.Investment(
@@ -256,20 +254,12 @@ def primary_network_invest(data, param, use_hp=True, return_unsolved=False):
             ),
         inputs={
             hnw: solph.flows.Flow(
-                # max=param['st-tes']['Q_rel_in_max'],
-                # min=param['st-tes']['Q_rel_in_min'],
                 variable_costs=param['st-tes']['op_cost_var'],
-                # nonconvex=solph.NonConvex(),
-                # custom_attributes={'storageflowlimit': True}
                 )
             },
         outputs={
             hnw: solph.flows.Flow(
-                # max=param['st-tes']['Q_rel_out_max'],
-                # min=param['st-tes']['Q_rel_out_min'],
                 variable_costs=param['st-tes']['op_cost_var'],
-                # nonconvex=solph.NonConvex(),
-                # custom_attributes={'storageflowlimit': True}
                 )
             },
         invest_relation_input_capacity=param['st-tes']['Q_in_to_cap'],
@@ -282,20 +272,11 @@ def primary_network_invest(data, param, use_hp=True, return_unsolved=False):
     energy_system.add(st_tes)
 
     # %% Auxillary components
-    # Korrektere Ermittlung KWK-Bonus
-    # ccet_P_N = data['ccet_P_max_woDH'].mean()
-    # ccet_chp_bonus = chp_bonus(ccet_P_N * 1e3, use_case='grid') * 1000/100
-
-    # VEREINFACHUNG für den Investmodus
-    # Annahme erste Iteration: Gleiche Dimensionierung aller Anlagen entlang der Maximallast
-    # ccet_P_N = data['heat_demand'].max() * 1/3
     ccet_P_N = (
         (data['heat_demand'].max() * 1/3)
         / data['ccet_eta_th'].mean()
         * data['ccet_eta_el'].mean()
         )
-    # Asymptotischer Grenzwert des KWK-Bonus von 34.00 €/MWh
-    # # (bei 50 MW bereits 34.05 €/MWh)
     ccet_chp_bonus = param['param']['chp_bonus']
 
     ccet_with_chp_bonus = solph.components.Converter(
@@ -357,9 +338,6 @@ def primary_network_invest(data, param, use_hp=True, return_unsolved=False):
 
     # %% Solve
     model = solph.Model(energy_system)
-    # solph.constraints.limit_active_flow_count_by_keyword(
-    #     model, 'storageflowlimit', lower_limit=0, upper_limit=1)
-    # model.write('my_model.lp', io_options={'symbolic_solver_labels': True})
     model.solve(
         solver='gurobi', solve_kwargs={'tee': True},
         cmdline_options={"mipgap": param['param']['mipgap']}
@@ -516,7 +494,6 @@ def sub_network_invest(data, param, **kwargs):
         energy_system.add(sub_hp)
 
     # %% Short term storage
-    # C_var erneut recherchieren und mit Quelle hinterlegen!
     sub_st_tes = solph.components.GenericStorage(
         label='sub st-tes',
         investment=solph.Investment(
@@ -563,7 +540,6 @@ def sub_network_invest(data, param, **kwargs):
 
     # %% Solve
     model = solph.Model(energy_system)
-    # model.write('my_model.lp', io_options={'symbolic_solver_labels': True})
     model.solve(
         solver='gurobi', solve_kwargs={'tee': True},
         cmdline_options={"mipgap": param['param']['mipgap']}
@@ -576,147 +552,6 @@ def sub_network_invest(data, param, **kwargs):
     meta_results = solph.processing.meta_results(model)
 
     return results, meta_results
-
-
-# def sub_network_simple_invest(data, param):
-#     """
-#     Generate and solve mixed integer linear problem of the simple sub network.
-
-#     Parameters
-#     ----------
-
-#     data : pandas.DataFrame
-#         csv file of user defined time dependent parameters.
-
-#     param : dict
-#         JSON parameter file of user defined constants.
-#     """
-#     # %% Create time index
-#     periods = len(data)
-#     date_time_index = pd.date_range(data.index[0], periods=periods, freq='h')
-
-#     # %% Create energy system
-#     energy_system = solph.EnergySystem(timeindex=date_time_index)
-
-#     # %% Busses
-#     enw = solph.Bus(label='electricity network')
-#     hnw = solph.Bus(label='heat network')
-
-#     energy_system.add(enw, hnw)
-
-#     # %% Sources
-#     elec_source = solph.components.Source(
-#         label='electricity source',
-#         outputs={
-#             enw: solph.flows.Flow(
-#                 variable_costs=(
-#                     param['param']['elec_consumer_charges_grid']
-#                     + data['el_spot_price']
-#                     # + (data['co2_price'] * data['ef_om'])
-#                     ))}
-#         )
-
-#     primary_network_source = solph.components.Source(
-#         label='primary network',
-#         outputs={
-#             hnw: solph.flows.Flow(
-#                 variable_costs=data['primary_network_heat_price']
-#                 )}
-#         )
-
-#     energy_system.add(elec_source, primary_network_source)
-
-#     # %% Sinks
-#     heat_sink = solph.components.Sink(
-#         label='heat demand',
-#         inputs={
-#             hnw: solph.flows.Flow(
-#                 variable_costs=-param['param']['heat_price'],
-#                 nominal_value=data['heat_demand'].max(),
-#                 fix=data['heat_demand']/data['heat_demand'].max()
-#                 )}
-#         )
-
-#     energy_system.add(heat_sink)
-
-#     # %% Heat pump
-#     hp = solph.components.OffsetConverter(
-#         label='heat pump',
-#         inputs={
-#             enw: solph.flows.Flow(
-#                 variable_costs=param['param']['elec_consumer_charges_self'],
-#             )
-#         },
-#         outputs={
-#             hnw: solph.flows.Flow(
-#                 variable_costs=(param['hp']['op_cost_var']),
-#                 investment=solph.Investment(
-#                     ep_costs=None,
-#                     maximum=None,
-#                     minimum=None
-#                     ),
-#                 max=data['hp_Q_max'],
-#                 min=data['hp_Q_min'],
-#                 nonconvex=solph.NonConvex()
-#                 )
-#             },
-#         coefficients=[data['hp_c_0'], data['hp_c_1']]
-#         )
-
-#     energy_system.add(hp)
-
-#     # %% Short term storage
-#     # C_var erneut recherchieren und mit Quelle hinterlegen!
-#     st_tes = solph.components.GenericStorage(
-#         label='st-tes',
-#         investment=solph.Investment(
-#             ep_costs=None,
-#             maximum=None,
-#             minimum=None
-#             ),
-#         inputs={
-#             hnw: solph.flows.Flow(
-#                 storageflowlimit=True,
-#                 max=param['st-tes']['Q_rel_in_max'],
-#                 min=param['st-tes']['Q_rel_in_min'],
-#                 variable_costs=param['st-tes']['op_cost_var'],
-#                 nonconvex=solph.NonConvex()
-#                 )
-#             },
-#         outputs={
-#             hnw: solph.flows.Flow(
-#                 storageflowlimit=True,
-#                 max=param['st-tes']['Q_rel_out_max'],
-#                 min=param['st-tes']['Q_rel_out_min'],
-#                 variable_costs=param['st-tes']['op_cost_var'],
-#                 nonconvex=solph.NonConvex())
-#             },
-#         invest_relation_input_capacity=None,
-#         invest_relation_output_capacity=None,
-#         initial_storage_level=param['st-tes']['init_storage'],
-#         loss_rate=param['st-tes']['Q_rel_loss'],
-#         inflow_conversion_factor=param['st-tes']['inflow_conv'],
-#         outflow_conversion_factor=param['st-tes']['outflow_conv'])
-
-#     energy_system.add(st_tes)
-
-#     # %% Solve
-#     model = solph.Model(energy_system)
-#     solph.constraints.limit_active_flow_count_by_keyword(
-#         model, 'storageflowlimit', lower_limit=0, upper_limit=1)
-#     # model.write('my_model.lp', io_options={'symbolic_solver_labels': True})
-#     model.solve(
-#         solver='gurobi', solve_kwargs={'tee': True},
-#         cmdline_options={"mipgap": param['param']['mipgap']}
-#         )
-
-#     # Ergebnisse in results
-#     results = solph.processing.results(model)
-
-#     # Metaergebnisse
-#     meta_results = solph.processing.meta_results(model)
-
-#     return results, meta_results
 
 
 def IVgdh_network_invest(data, param):
@@ -867,56 +702,6 @@ def IVgdh_network_invest(data, param):
 
     energy_system.add(solar_thermal)
 
-    # solar_thermal = solph.components.Converter(
-    #     label='solar thermal',
-    #     inputs={sol_node: solph.flows.Flow()},
-    #     outputs={
-    #         hnw: solph.flows.Flow(
-    #             nominal_value=1,
-    #             max=param['sol']['A_N_CHECK_IF_SET'] * data['solar_heat_flow'],
-    #             min=param['sol']['A_N_CHECK_IF_SET'] * data['solar_heat_flow'],
-    #             variable_costs=(
-    #                 max(param['sol']['op_cost_var'] - param['sol']['BEW_op'],
-    #                     param['sol']['op_cost_var'] * (1 - 0.9))
-    #                 )
-    #             )
-    #         },
-    #     conversion_factors={hnw: 1}
-    #     )
-
-    # energy_system.add(solar_thermal)
-
-    # sol_oc = solph.components.OffsetConverter(
-    #     label='solar thermal',
-    #     inputs={solph.flows.Flow()},
-    #     outputs={
-    #         hnw: solph.flows.Flow(
-    #             investment=solph.Investment(
-    #                 ep_costs=(
-    #                     param['sol']['inv_spez_m'] / bwsf
-    #                     * (1 - param['param']['BEW'])
-    #                     ),
-    #                 maximum=param['sol']['cap_max'],
-    #                 minimum=param['sol']['cap_min'],
-    #                 offset=(
-    #                     param['sol']['inv_spez_b'] / bwsf
-    #                     * (1 - param['param']['BEW'])
-    #                     ),
-    #                 nonconvex=solph.NonConvex()
-    #             ),
-    #             max=data['solar_heat_flow'],
-    #             min=data['solar_heat_flow'],
-    #             variable_costs=(
-    #                 max(param['sol']['op_cost_var'] - param['sol']['BEW_op'],
-    #                     param['sol']['op_cost_var'] * (1 - 0.9))
-    #                 )
-    #             )
-    #         },
-    #     coefficients=[0, 1]
-    #     )
-
-    # energy_system.add(sol_oc)
-
     # %% Sinks
     elec_sink = solph.components.Sink(
         label='spotmarket',
@@ -1011,34 +796,6 @@ def IVgdh_network_invest(data, param):
     energy_system.add(ice)
 
     # %% Storage
-    # s_tes = solph.components.GenericStorage(
-    #     label='s-tes',
-    #     investment=solph.Investment(
-    #         ep_costs=(param['s-tes']['inv_spez_m'] / bwsf),
-    #         maximum=param['s-tes']['cap_max'],
-    #         minimum=param['s-tes']['cap_min'],
-    #         offset=(param['s-tes']['inv_spez_b'] / bwsf),
-    #         nonconvex=True
-    #         ),
-    #     inputs={
-    #         hnw: solph.flows.Flow(
-    #             variable_costs=param['s-tes']['op_cost_var']
-    #             )
-    #         },
-    #     outputs={
-    #         hnw: solph.flows.Flow(
-    #             variable_costs=param['s-tes']['op_cost_var']
-    #             )
-    #         },
-    #     invest_relation_input_capacity=param['s-tes']['Q_in_to_cap'],
-    #     invest_relation_output_capacity=param['s-tes']['Q_out_to_cap'],
-    #     initial_storage_level=param['s-tes']['init_storage'],
-    #     loss_rate=param['s-tes']['Q_rel_loss'],
-    #     inflow_conversion_factor=param['s-tes']['inflow_conv'],
-    #     outflow_conversion_factor=param['s-tes']['outflow_conv'])
-
-    # energy_system.add(s_tes)
-
     s_tes = solph.components.GenericStorage(
         label='s-tes',
         investment=solph.Investment(
@@ -1068,20 +825,11 @@ def IVgdh_network_invest(data, param):
     energy_system.add(s_tes)
 
     # %% Auxillary components
-    # Korrektere Ermittlung KWK-Bonus
-    # ice_P_N = data['ccet_P_max_woDH'].mean()
-    # ice_chp_bonus = chp_bonus(ice_P_N * 1e3, use_case='grid') * 1000/100
-
-    # VEREINFACHUNG für den Investmodus
-    # Annahme erste Iteration: Gleiche Dimensionierung aller Anlagen entlang der Maximallast
-    # ice_P_N = data['heat_demand'].max() * 1/3
     ice_P_N = (
         (data['heat_demand'].max() * 1/3)
         / data['ice_eta_th'].mean()
         * data['ice_eta_el'].mean()
         )
-    # Asymptotischer Grenzwert des KWK-Bonus von 34.00 €/MWh
-    # # (bei 50 MW bereits 34.05 €/MWh)
     ice_chp_bonus = param['param']['chp_bonus']
 
     ice_with_chp_bonus = solph.components.Converter(
