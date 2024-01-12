@@ -807,13 +807,13 @@ def IVgdh_network_invest(data, param):
             ),
         inputs={
             hnw: solph.flows.Flow(
-                nominal_value=param['s-tes']['Q_in_CHECK_IF_SET'],
+                nominal_value=param['s-tes']['Q_in'],
                 variable_costs=param['s-tes']['op_cost_var']
                 )
             },
         outputs={
             hnw: solph.flows.Flow(
-                nominal_value=param['s-tes']['Q_out_CHECK_IF_SET'],
+                nominal_value=param['s-tes']['Q_out'],
                 variable_costs=param['s-tes']['op_cost_var']
                 )
             },

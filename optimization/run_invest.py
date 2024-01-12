@@ -67,8 +67,8 @@ for es in energy_systems:
                 param['s-tes']['cap_max'] = 1e6
                 param['sol']['cap_max'] = 1e6
 
-                param['s-tes']['Q_in_CHECK_IF_SET'] = data['heat_demand'].max()
-                param['s-tes']['Q_out_CHECK_IF_SET'] = param['s-tes']['Q_in_CHECK_IF_SET']
+                param['s-tes']['Q_in'] = data['heat_demand'].max()
+                param['s-tes']['Q_out'] = param['s-tes']['Q_in']
             print(json.dumps(param, indent=4))
 
             # %% Execute optimization
