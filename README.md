@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/741478371.svg)](https://zenodo.org/doi/10.5281/zenodo.10496092)
+
 # Overview
 
 This repository contains additional information and data relating to the contribution to the "7. RET.Con" from the authors  M. Fritz, J. Freißmann and I. Tuschy. It serves to allow for reproduction of the obtained results.
