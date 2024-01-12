@@ -1,30 +1,25 @@
 import json
 import os
 
-import pandas as pd
-
 import energy_system_invest
+import pandas as pd
 import postprocessing_invest
 
 # %% Simulation parameters
-# Kim Possible energy_systems: 'pn', 'pn_wohp', 'sns', 'sn', 'IVgdh'
-# energy_systems = ['pn', 'sn', 'IVgdh']
-# energy_systems = ['pn', 'IVgdh']
-# energy_systems = ['pn']
-# energy_systems = ['sn']
-energy_systems = ['IVgdh']
+# Possible energy_systems: 'pn', 'pn_wohp', 'sns', 'sn', 'IVgdh'
+energy_systems = ['pn', 'sn', 'IVgdh']
 
-# Ronald Wesley scenarios: '16', '19', '40A', '40B'
+# Possible scenarios: '19'
 scenarios = ['19']
 
-# Call of energy system functions - noch vervollständigen
+# Call of energy system functions
 es_funcs = {
     'pn': energy_system_invest.primary_network_invest,
     'sn': energy_system_invest.sub_network_invest,
     'IVgdh': energy_system_invest.IVgdh_network_invest
     }
 
-# Call of postprocessing functions- noch vervollständigen
+# Call of postprocessing functions
 pp_funcs = {
     'pn': postprocessing_invest.primary_network_invest,
     'sn': postprocessing_invest.sub_network_invest,
@@ -38,13 +33,8 @@ longnames = {
     }
 
 # Heat Pumps
-# hps = ['HeatPumpPCEconOpen_R717', 'HeatPumpPCEconOpen_R1234ZE(Z)']
 hps = ['HeatPumpPCEconOpen_R717']
-# hps = ['HeatPumpPCEconOpen_R1234ZE(Z)']
 # hps = ['woHeatPump']
-
-# abs_cols = ['ccet_P_max_woDH', 'ccet_P_min_woDH', 'ccet_Q_CW_min', 'ccet_Q_in']
-# ccet_Q_N = 295
 
 for es in energy_systems:
     for scn in scenarios:
@@ -58,11 +48,6 @@ for es in energy_systems:
             data = pd.read_csv(
                 datafile, sep=';', index_col=0, parse_dates=True
                 )
-            # if 'R1234' in hp:
-            #     for col in abs_cols:
-            #         data[col] *= ccet_Q_N
-
-            #     data.to_csv(datafile, sep=';')
 
             paramfile = f'{inputpath}_invest_param_{hp}.json'
             with open(paramfile, 'r', encoding='utf-8') as file:
@@ -78,39 +63,12 @@ for es in energy_systems:
                     data['sub_heat_demand'].max() * 24
                 )
                 print(param['sub st-tes']['cap_max']/24)
-                # with open(paramfile, 'w', encoding='utf-8') as file:
-                #     json.dump(param, file, indent=4)
-
             if es == 'IVgdh':
-                # param['sol']['cap_max'] *= 3
-                # param['sol']['cap_max'] *= data['solar_heat_flow'].max()
-                # param['sol']['cap_max'] = 0.001
-                # print(param['sol']['cap_max'])
-                # param['s-tes']['cap_max'] = 50000
-                # param['s-tes']['cap_max'] = 83000
                 param['s-tes']['cap_max'] = 1e6
                 param['sol']['cap_max'] = 1e6
-                # param['s-tes']['Q_in_to_cap'] = (
-                #     (data['solar_heat_flow'] * param['sol']['cap_max']
-                #     - data['heat_demand']).max()
-                #     / param['s-tes']['cap_max']
-                #     )
-                # param['s-tes']['Q_out_to_cap'] = (
-                #     (data['solar_heat_flow'] * param['sol']['cap_max']
-                #     - data['heat_demand']).max()
-                #     / param['s-tes']['cap_max']
-                #     )
 
-                # param['s-tes']['Q_in_CHECK_IF_SET'] = (
-                #     data['solar_heat_flow'] * param['sol']['cap_max']
-                #     - data['heat_demand']
-                #     ).max()
-                # param['sol']['A_N_CHECK_IF_SET'] = 150000
                 param['s-tes']['Q_in_CHECK_IF_SET'] = data['heat_demand'].max()
                 param['s-tes']['Q_out_CHECK_IF_SET'] = param['s-tes']['Q_in_CHECK_IF_SET']
-                # print(param['s-tes']['Q_out_to_cap'])
-                # param['s-tes']['cap_max'] *= 5
-
             print(json.dumps(param, indent=4))
 
             # %% Execute optimization
@@ -122,8 +80,6 @@ for es in energy_systems:
                 args.append(use_hp)
 
             results, meta_results = es_funcs[es](*args)
-
-            # breakpoint()
 
             if es in pp_funcs:
                 args = [results, meta_results, data, param]
@@ -146,13 +102,3 @@ for es in energy_systems:
                     json.dump(key_params, file, indent=4, sort_keys=True)
 
                 cost_df.to_csv(f'{outputpath}_unit_cost_{hp}.csv', sep=';')
-
-                # if es == 'pn':
-                #     checkpath = os.path.join(
-                #         __file__, '..', longnames[es], 'output',
-                #         f'{es+scn}_invest_subsidies_check_{hp}.csv'
-                #         )
-                #     postprocessing_invest.check_subsidies(
-                #         data_all, data_caps, data, param, checkpath,
-                #         use_hp=use_hp
-                #         )
